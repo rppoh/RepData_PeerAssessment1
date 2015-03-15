@@ -8,7 +8,7 @@ output:
 ## Loading and preprocessing the data
 
 ```{r}
-file <- "C:/R_env/jh_rppoh/rep_res/activity.csv"
+file <- "C:/R_env/jh_rppoh/05_rep_res/activity.csv"
 act <- read.csv(file)
 
 act$date <- as.Date(act$date)
@@ -48,6 +48,53 @@ act_complete_interval[which(act_complete_interval$steps_per_interval == max(act_
 
 ## Imputing missing values
 
+```{r}
+# Number of missing values for 'steps' variable
+( no_NA <- sum(is.na(act$steps)) )
+```
 
+**Strategy**: NAs for 'steps' variable are replaced with the mean for that 5-minute interval.
+
+**Justification and discussion**: on closer inspection of NAs (see code below), it is clear that all missing values come from 8 days for which no data is available at all (device not used/not working properly). Therefore, replacing NA with the mean/median for a given day is not possible. The method chosen makes (some) sense (or at least is possible), however in fact what we do is just substituting those 8 days with interval-means from other days. Best thing would be simply not to take those days into account.
+
+
+```{r}
+show_NA <- act[!complete.cases(act),]
+date_NA <- unique(show_NA$date)
+# Number of days for which there was at least 1 NA
+length(date_NA)
+# Check if data for all intervals for given days is missing
+length(date_NA) * 288 == no_NA
+```
+
+**Imputing NAs**
+```{r message=FALSE}
+library(data.table)
+act_complete <- data.table(act_complete)
+steps_mean_interval <- act_complete[,mean(steps),by=interval]
+
+act_NA_filled <- act
+for (i in 1:length(act_NA_filled$steps)) {
+        if (is.na(act_NA_filled$steps[i])) {
+                act_NA_filled$steps[i] <- steps_mean_interval[
+                  steps_mean_interval$interval == act_NA_filled$interval[i],V1]
+        }
+}
+
+act_NA_filled_day <- act_NA_filled %>% group_by(date) %>%
+        summarise(steps_per_day = sum(steps))
+
+# Plotting histograms
+par(mfrow = c(1, 2))
+hist(act_NA_filled_day$steps_per_day, main="Steps/day | NAs imputed",
+     col="forestgreen", xlab="Number of steps per day")
+
+hist(act_complete_day$steps_per_day, main="Steps/day | NAs excluded",
+     col="blue", xlab="Number of steps per day", ylim = c(0,35))
+
+mean(act_NA_filled_day$steps_per_day)
+median(act_NA_filled_day$steps_per_day)
+```
+Impact as expected for the imputing strategy used: histograms similar in shape (with higher middle bin due to 8 more counts for the added days); mean the same; median - shifted towards mean.
 
 ## Are there differences in activity patterns between weekdays and weekends?
