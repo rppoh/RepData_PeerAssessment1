@@ -13,7 +13,18 @@ act <- read.csv(file)
 
 act$date <- as.Date(act$date)
 
-act_complete <- act[complete.cases(act),] #ignoring rows with NAs
+# add day of the week
+Sys.setlocale("LC_TIME", "English")
+act$day <- weekdays(act$date)
+
+# add day type
+act$daytype = "weekday"
+act$daytype[act$day == "Saturday"] = "weekend"
+act$daytype[act$day == "Sunday"] = "weekend"
+act$daytype <- as.factor(act$daytype)
+
+# dataset ignoring rows with NAs
+act_complete <- act[complete.cases(act),] 
 ```
 
 ## What is mean total number of steps taken per day?
@@ -98,3 +109,23 @@ median(act_NA_filled_day$steps_per_day)
 Impact as expected for the imputing strategy used: histograms similar in shape (with higher middle bin due to 8 more counts for the added days); mean the same; median - shifted towards mean.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Two main differences appear:
+
+1. the morning activity is more concentrated during weekdays (one distict peak around 8:35 a.m.; corresponding to rush hours/commuting/pre-work activities) whereas for weekends there seems to be relatively less morning activity and it is spread more evenly,
+
+2. on the whole, during the whole day person seems to be more active on weekends.
+
+```{r message=FALSE}
+library(reshape2)
+act_daytype <- dcast(melt(act_NA_filled,measure.vars="steps"),interval+daytype~variable,mean)
+
+library(lattice)
+xyplot(steps ~ interval | daytype, data = act_daytype, type = "l",
+       index.cond=list(c(2,1)), #this provides the order of the panels
+       layout = c(1,2),
+       main = "Number of steps per interval",
+       xlab = "Interval",
+       ylab="# steps")
+```
+
